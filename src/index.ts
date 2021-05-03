@@ -34,6 +34,14 @@ export type Line =
 
 export type Source = { chars: string; line: number; offset: number };
 
+export function forward(source: Source, len: number) {
+  return {
+    chars: source.chars.slice(len),
+    offset: source.offset + len,
+    line: source.line,
+  };
+}
+
 export type ParseError = { line: number; offset: number; message: string };
 
 export type Result<T, E> = { tag: "ok"; value: T } | { tag: "error"; error: E };
@@ -55,6 +63,10 @@ export function error<T, E>(error: E): Result<T, E> {
 export enum Tag {
   LeftBracket = "{",
   RightBracket = "}",
+  LeftSquareBracket = "[",
+  RightSquareBracket = "]",
+  Assignment = "=",
+  Definition = "$",
 }
 
 export function parseValue(
@@ -73,22 +85,11 @@ export function parseValue(
       let variable = source.chars.slice(1, rightBracketIndex);
       let parts = variable.split(";");
       if (parts.length === 1) {
-        return ok([
-          variable.trim(),
-          {
-            ...source,
-            chars: source.chars.slice(rightBracketIndex + 1),
-            offset: rightBracketIndex + 1,
-          },
-        ]);
+        return ok([variable.trim(), forward(source, rightBracketIndex + 1)]);
       } else {
         return ok([
           parts.map((variable) => variable.trim()),
-          {
-            ...source,
-            chars: source.chars.slice(rightBracketIndex + 1),
-            offset: rightBracketIndex + 1,
-          },
+          forward(source, rightBracketIndex + 1),
         ]);
       }
     }
@@ -103,6 +104,52 @@ export function parseValue(
       line: source.line,
       offset: source.offset,
       message: `expected {, but found ${first}`,
+    });
+  }
+}
+
+export function parseDefinition(
+  source: Source
+): Result<[Definition, Source], ParseError> {
+  let first = source.chars[0];
+  if (first === Tag.Definition) {
+    let result = parseValue(forward(source, 1));
+    if (result.tag === "error") {
+      return result;
+    } else {
+      let [variable, newSource] = result.value;
+      if (typeof variable === "string") {
+        let assignmentIndex = newSource.chars
+          .trimLeft()
+          .indexOf(Tag.Assignment);
+        if (assignmentIndex === -1) {
+          return error({
+            line: newSource.line,
+            offset: newSource.offset + assignmentIndex + 1,
+            message: `expected =, but found ${newSource.chars.trimLeft()[0]}`,
+          });
+        } else {
+          let result = parseValue(forward(newSource, assignmentIndex + 1));
+          if (result.tag === "error") {
+            return result;
+          } else {
+            let [value, newSource] = result.value;
+            return ok([{ name: variable, value }, newSource]);
+          }
+        }
+      } else {
+        return error({
+          line: source.line,
+          offset: source.offset,
+          message: "variable can't be defined as list",
+        });
+      }
+    }
+  } else {
+    return error({
+      line: source.line,
+      offset: source.offset,
+      message: `expected $, but found ${first}`,
     });
   }
 }
