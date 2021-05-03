@@ -4,11 +4,14 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "tsc",
+    "test": "npm run build && tape tests/**/*.js"
   },
   "author": "Ji Chang",
   "license": "ISC",
   "dependencies": {
+    "@types/tape": "^4.13.0",
+    "tape": "^5.2.2",
     "typescript": "^4.2.4"
   }
 }
