@@ -10,6 +10,8 @@ import {
   SceneHeading,
   parseAnnotation,
   Annotation,
+  parseCharacter,
+  Character,
 } from "../src/index";
 import { createSource } from "./helper";
 
@@ -295,6 +297,82 @@ test("parseAnnotation should return error for invalid input", (t) => {
     error.message,
     "error should have correct message"
   );
+
+  t.end();
+});
+
+test("parseCharacter should parse character definition", (t) => {
+  let source = createSource("@{character}");
+  let result = parseCharacter(source) as {
+    tag: "ok";
+    value: [Character, Source];
+  };
+  t.equal(result.tag, "ok", "result should have tag ok");
+  let [character, newSource] = result.value;
+  t.deepEqual(character.names, ["character"], "character shoule have name");
+  t.equal(
+    character.annotation,
+    undefined,
+    "character should not have annotation"
+  );
+  t.equal(
+    newSource.offset,
+    source.offset + source.chars.length,
+    "new source should move to new offset"
+  );
+  t.equal(newSource.chars, "", "new source should have no chars left");
+
+  t.end();
+});
+
+test("parseCharacter should parse character definition which has annotation", (t) => {
+  let source = createSource("@{character}(annotation)");
+  let result = parseCharacter(source) as {
+    tag: "ok";
+    value: [Character, Source];
+  };
+  t.equal(result.tag, "ok", "result should have tag ok");
+  let [character, newSource] = result.value;
+  t.deepEqual(character.names, ["character"], "character shoule have name");
+  t.equal(
+    character.annotation,
+    "annotation",
+    "character should have annotation"
+  );
+  t.equal(
+    newSource.offset,
+    source.offset + source.chars.length,
+    "new source should move to new offset"
+  );
+  t.equal(newSource.chars, "", "new source should have no chars left");
+
+  t.end();
+});
+
+test("parseCharacter should parse multiple character definition which has annotation", (t) => {
+  let source = createSource("@{characterA; characterB}(annotation)");
+  let result = parseCharacter(source) as {
+    tag: "ok";
+    value: [Character, Source];
+  };
+  t.equal(result.tag, "ok", "result should have tag ok");
+  let [character, newSource] = result.value;
+  t.deepEqual(
+    character.names,
+    ["characterA", "characterB"],
+    "characters shoule have name"
+  );
+  t.equal(
+    character.annotation,
+    "annotation",
+    "character should have annotation"
+  );
+  t.equal(
+    newSource.offset,
+    source.offset + source.chars.length,
+    "new source should move to new offset"
+  );
+  t.equal(newSource.chars, "", "new source should have no chars left");
 
   t.end();
 });

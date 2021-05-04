@@ -1,4 +1,4 @@
-export type Value = string | Value[];
+export type Value = string | string[];
 
 export type Definition = { name: string; value: Value };
 
@@ -10,7 +10,7 @@ export type SceneHeading =
 
 export type Annotation = string;
 
-export type Character = { name: string; annotation: Annotation };
+export type Character = { names: string[]; annotation?: Annotation };
 
 export type DialogueContent =
   | { tag: "annotation"; content: string }
@@ -69,6 +69,7 @@ export enum Tag {
   RightBracket = ")",
   Assignment = "=",
   Definition = "$",
+  Character = "@",
 }
 
 export function parseValue(
@@ -242,6 +243,44 @@ export function parseAnnotation(
       line: source.line,
       offset: source.offset,
       message: `expected (, but found ${first}`,
+    });
+  }
+}
+
+export function parseCharacter(
+  source: Source
+): Result<[Character, Source], ParseError> {
+  let first = source.chars[0];
+  if (first === Tag.Character) {
+    let result1 = parseValue(forward(source, 1));
+    if (result1.tag === "error") {
+      return result1;
+    } else {
+      let [variable, newSource] = result1.value;
+      let names = [];
+      if (typeof variable === "string") {
+        names.push(variable);
+      } else {
+        names.push(...variable);
+      }
+      let result2 = parseAnnotation(newSource);
+      if (result2.tag === "error") {
+        return ok([
+          {
+            names,
+          },
+          newSource,
+        ]);
+      } else {
+        let [annotation, newSource] = result2.value;
+        return ok([{ names, annotation }, newSource]);
+      }
+    }
+  } else {
+    return error({
+      line: source.line,
+      offset: source.offset,
+      message: `expected @, but found ${first}`,
     });
   }
 }
