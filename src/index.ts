@@ -61,10 +61,12 @@ export function error<T, E>(error: E): Result<T, E> {
 }
 
 export enum Tag {
-  LeftBracket = "{",
-  RightBracket = "}",
+  LeftCurlyBracket = "{",
+  RightCurlyBracket = "}",
   LeftSquareBracket = "[",
   RightSquareBracket = "]",
+  LeftBracket = "(",
+  RightBracket = ")",
   Assignment = "=",
   Definition = "$",
 }
@@ -73,8 +75,8 @@ export function parseValue(
   source: Source
 ): Result<[Value, Source], ParseError> {
   let first = source.chars[0];
-  if (first === Tag.LeftBracket) {
-    let rightBracketIndex = source.chars.indexOf(Tag.RightBracket);
+  if (first === Tag.LeftCurlyBracket) {
+    let rightBracketIndex = source.chars.indexOf(Tag.RightCurlyBracket);
     if (rightBracketIndex === -1) {
       return error({
         line: source.line,
@@ -209,6 +211,37 @@ export function parseSceneHeading(
       line: source.line,
       offset: source.offset,
       message: `expected [, but found ${first}`,
+    });
+  }
+}
+
+export function parseAnnotation(
+  source: Source
+): Result<[Annotation, Source], ParseError> {
+  let first = source.chars[0];
+  if (first === Tag.LeftBracket) {
+    let rightBracketIndex = source.chars.indexOf(Tag.RightBracket);
+    if (rightBracketIndex === -1) {
+      return error({
+        line: source.line,
+        offset: source.chars.length,
+        message: "expected ), but found undefined",
+      });
+    } else {
+      let annotation = source.chars.slice(1, rightBracketIndex);
+      return ok([annotation, forward(source, rightBracketIndex + 1)]);
+    }
+  } else if (first === undefined) {
+    return error({
+      line: source.line,
+      offset: source.offset,
+      message: `expected (, but found undefined`,
+    });
+  } else {
+    return error({
+      line: source.line,
+      offset: source.offset,
+      message: `expected (, but found ${first}`,
     });
   }
 }
