@@ -3,9 +3,11 @@ import {
   ParseError,
   parseValue,
   parseDefinition,
+  parseSceneHeading,
   Source,
   Value,
   Definition,
+  SceneHeading,
 } from "../src/index";
 import { createSource } from "./helper";
 
@@ -127,6 +129,104 @@ test("parseDefinition should return error for invalid input", (t) => {
     error.message,
     "error should have correct message"
   );
+
+  t.end();
+});
+
+test("parseSceneHeading should parse normal scene heading", (t) => {
+  let source = createSource("[INT]");
+  let result = parseSceneHeading(source) as {
+    tag: "ok";
+    value: [SceneHeading, Source];
+  };
+  t.equal(result.tag, "ok", "result should have tag ok");
+  let [sceneheading, newSource] = result.value as [
+    { tag: "interior"; details: string | undefined },
+    Source
+  ];
+  t.equal("interior", sceneheading.tag, "scene heading shoule have tag EXT");
+  t.equal(
+    sceneheading.details,
+    undefined,
+    "scene heading should not have details"
+  );
+  t.equal(
+    newSource.offset,
+    source.offset + source.chars.length,
+    "new source should move to new offset"
+  );
+  t.equal(newSource.chars, "", "new source should have no chars left");
+
+  t.end();
+});
+
+test("parseSceneHeading should parse scene heading with details", (t) => {
+  let source = createSource("[INT - in the house]");
+  let result = parseSceneHeading(source) as {
+    tag: "ok";
+    value: [SceneHeading, Source];
+  };
+  t.equal(result.tag, "ok", "result should have tag ok");
+  let [sceneheading, newSource] = result.value as [
+    { tag: "interior"; details: string | undefined },
+    Source
+  ];
+  t.equal("interior", sceneheading.tag, "scene heading shoule have tag EXT");
+  t.equal(
+    sceneheading.details,
+    "in the house",
+    "scene heading should have details"
+  );
+  t.equal(
+    newSource.offset,
+    source.offset + source.chars.length,
+    "new source should move to new offset"
+  );
+  t.equal(newSource.chars, "", "new source should have no chars left");
+
+  t.end();
+});
+
+test("parseSceneHeading should parse nested scene heading with details", (t) => {
+  let source = createSource("[INT - in the house / EXT - in the field]");
+  let result = parseSceneHeading(source) as {
+    tag: "ok";
+    value: [SceneHeading, Source];
+  };
+  t.equal(result.tag, "ok", "result should have tag ok");
+  let [sceneheading, newSource] = result.value as [
+    { tag: "nested"; headings: SceneHeading[] },
+    Source
+  ];
+  t.equal("nested", sceneheading.tag, "scene heading shoule have tag nested");
+  t.equal(
+    "interior",
+    sceneheading.headings[0].tag,
+    "scene heading shoule have tag EXT"
+  );
+  t.equal(
+    // @ts-ignore
+    sceneheading.headings[0].details,
+    "in the house",
+    "scene heading should have details"
+  );
+  t.equal(
+    "exterior",
+    sceneheading.headings[1].tag,
+    "scene heading shoule have tag EXT"
+  );
+  t.equal(
+    // @ts-ignore
+    sceneheading.headings[1].details,
+    "in the field",
+    "scene heading should have details"
+  );
+  t.equal(
+    newSource.offset,
+    source.offset + source.chars.length,
+    "new source should move to new offset"
+  );
+  t.equal(newSource.chars, "", "new source should have no chars left");
 
   t.end();
 });

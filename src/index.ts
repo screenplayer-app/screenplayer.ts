@@ -3,9 +3,9 @@ export type Value = string | Value[];
 export type Definition = { name: string; value: Value };
 
 export type SceneHeading =
-  | { tag: "interior"; details: string }
-  | { tag: "exterior"; details: string }
-  | { tag: "other"; details: string }
+  | { tag: "interior"; details: string | undefined }
+  | { tag: "exterior"; details: string | undefined }
+  | { tag: "other"; details: string | undefined }
   | { tag: "nested"; headings: SceneHeading[] };
 
 export type Annotation = string;
@@ -150,6 +150,65 @@ export function parseDefinition(
       line: source.line,
       offset: source.offset,
       message: `expected $, but found ${first}`,
+    });
+  }
+}
+
+export function parseSceneHeading(
+  source: Source
+): Result<[SceneHeading, Source], ParseError> {
+  let first = source.chars[0];
+  if (first === Tag.LeftSquareBracket) {
+    let rightSquareBracketIndex = source.chars.indexOf(Tag.RightSquareBracket);
+    if (rightSquareBracketIndex === -1) {
+      return error({
+        line: source.line,
+        offset: source.chars.length,
+        message: "expected ], but found undefined",
+      });
+    } else {
+      let value = source.chars.slice(1, rightSquareBracketIndex);
+      let headings = value.split("/").map((sceneHeading) => {
+        let parts = sceneHeading.split("-").map((part) => part.trim());
+        let tag: SceneHeading["tag"] = "other";
+        switch (parts[0].toUpperCase()) {
+          case "EXT":
+            tag = "exterior";
+            break;
+          case "INT":
+            tag = "interior";
+            break;
+          default:
+            tag = "other";
+        }
+        return {
+          tag,
+          details: parts[1],
+        };
+      });
+      if (headings.length === 1) {
+        return ok([headings[0], forward(source, rightSquareBracketIndex + 1)]);
+      } else {
+        return ok([
+          {
+            tag: "nested",
+            headings,
+          },
+          forward(source, rightSquareBracketIndex + 1),
+        ]);
+      }
+    }
+  } else if (first === undefined) {
+    return error({
+      line: source.line,
+      offset: source.offset,
+      message: `expected [, but found undefined`,
+    });
+  } else {
+    return error({
+      line: source.line,
+      offset: source.offset,
+      message: `expected [, but found ${first}`,
     });
   }
 }
