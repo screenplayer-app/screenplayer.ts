@@ -12,6 +12,10 @@ import {
   Annotation,
   parseCharacter,
   Character,
+  DialogueContent,
+  parseDialogueContent,
+  parseDialogue,
+  Dialogue,
 } from "../src/index";
 import { createSource } from "./helper";
 
@@ -366,6 +370,186 @@ test("parseCharacter should parse multiple character definition which has annota
     character.annotation,
     "annotation",
     "character should have annotation"
+  );
+  t.equal(
+    newSource.offset,
+    source.offset + source.chars.length,
+    "new source should move to new offset"
+  );
+  t.equal(newSource.chars, "", "new source should have no chars left");
+
+  t.end();
+});
+
+test("parseDialogueContent should parse annotation", (t) => {
+  let source = createSource("(character)");
+  let result = parseDialogueContent([], source) as {
+    tag: "ok";
+    value: [DialogueContent[], Source];
+  };
+  t.equal(result.tag, "ok", "result should have tag ok");
+  let [content, newSource] = result.value;
+  t.deepEqual(
+    content,
+    [{ tag: "annotation", content: "character" }],
+    "dialogue content should contain annotation"
+  );
+  t.equal(
+    newSource.offset,
+    source.offset + source.chars.length,
+    "new source should move to new offset"
+  );
+  t.equal(newSource.chars, "", "new source should have no chars left");
+
+  t.end();
+});
+
+test("parseDialogueContent should parse quoted text", (t) => {
+  let source = createSource('"character"');
+  let result = parseDialogueContent([], source) as {
+    tag: "ok";
+    value: [DialogueContent[], Source];
+  };
+  t.equal(result.tag, "ok", "result should have tag ok");
+  let [content, newSource] = result.value;
+  t.deepEqual(
+    content,
+    [{ tag: "text", content: "character" }],
+    "dialogue content should contain text"
+  );
+  t.equal(
+    newSource.offset,
+    source.offset + source.chars.length,
+    "new source should move to new offset"
+  );
+  t.equal(newSource.chars, "", "new source should have no chars left");
+
+  t.end();
+});
+
+test("parseDialogueContent should parse quoted text and annotation", (t) => {
+  let source = createSource('"character"(with sad face)');
+  let result = parseDialogueContent([], source) as {
+    tag: "ok";
+    value: [DialogueContent[], Source];
+  };
+  t.equal(result.tag, "ok", "result should have tag ok");
+  let [content, newSource] = result.value;
+  t.deepEqual(
+    content,
+    [
+      { tag: "text", content: "character" },
+      { tag: "annotation", content: "with sad face" },
+    ],
+    "dialogue content should contain text"
+  );
+  t.equal(
+    newSource.offset,
+    source.offset + source.chars.length,
+    "new source should move to new offset"
+  );
+  t.equal(newSource.chars, "", "new source should have no chars left");
+
+  t.end();
+});
+
+test("parseDialogue should parse normal dialogue", (t) => {
+  let source = createSource('@{characterA} "hello"');
+  let result = parseDialogue(source) as {
+    tag: "ok";
+    value: [Dialogue, Source];
+  };
+  t.equal(result.tag, "ok", "result should have tag ok");
+  let [dialogue, newSource] = result.value;
+  t.deepEqual(
+    dialogue,
+    {
+      character: { names: ["characterA"] },
+      contents: [{ tag: "text", content: "hello" }],
+    },
+    "dialogue content should contain character and text"
+  );
+  t.equal(
+    newSource.offset,
+    source.offset + source.chars.length,
+    "new source should move to new offset"
+  );
+  t.equal(newSource.chars, "", "new source should have no chars left");
+
+  t.end();
+});
+
+test("parseDialogue should parse normal dialogue", (t) => {
+  let source = createSource('@{characterA} "hello"');
+  let result = parseDialogue(source) as {
+    tag: "ok";
+    value: [Dialogue, Source];
+  };
+  t.equal(result.tag, "ok", "result should have tag ok");
+  let [dialogue, newSource] = result.value;
+  t.deepEqual(
+    dialogue,
+    {
+      character: { names: ["characterA"] },
+      contents: [{ tag: "text", content: "hello" }],
+    },
+    "dialogue content should contain character and text"
+  );
+  t.equal(
+    newSource.offset,
+    source.offset + source.chars.length,
+    "new source should move to new offset"
+  );
+  t.equal(newSource.chars, "", "new source should have no chars left");
+
+  t.end();
+});
+
+test("parseDialogue should parse dialogue by multiple characters", (t) => {
+  let source = createSource('@{characterA; characterB} "hello"');
+  let result = parseDialogue(source) as {
+    tag: "ok";
+    value: [Dialogue, Source];
+  };
+  t.equal(result.tag, "ok", "result should have tag ok");
+  let [dialogue, newSource] = result.value;
+  t.deepEqual(
+    dialogue,
+    {
+      character: { names: ["characterA", "characterB"] },
+      contents: [{ tag: "text", content: "hello" }],
+    },
+    "dialogue content should contain character and text"
+  );
+  t.equal(
+    newSource.offset,
+    source.offset + source.chars.length,
+    "new source should move to new offset"
+  );
+  t.equal(newSource.chars, "", "new source should have no chars left");
+
+  t.end();
+});
+
+test("parseDialogue should parse dialogue with annotation", (t) => {
+  let source = createSource('@{characterA} "hello"(pause)"world"');
+  let result = parseDialogue(source) as {
+    tag: "ok";
+    value: [Dialogue, Source];
+  };
+  t.equal(result.tag, "ok", "result should have tag ok");
+  let [dialogue, newSource] = result.value;
+  t.deepEqual(
+    dialogue,
+    {
+      character: { names: ["characterA"] },
+      contents: [
+        { tag: "text", content: "hello" },
+        { tag: "annotation", content: "pause" },
+        { tag: "text", content: "world" },
+      ],
+    },
+    "dialogue content should contain character and text"
   );
   t.equal(
     newSource.offset,

@@ -12,11 +12,12 @@ export type Annotation = string;
 
 export type Character = { names: string[]; annotation?: Annotation };
 
-export type DialogueContent =
-  | { tag: "annotation"; content: string }
-  | { tag: "text"; content: string };
+export type DialogueText = { tag: "text"; content: string };
+export type DialogueAnnotation = { tag: "annotation"; content: string };
 
-export type Dialogue = { characters: Character[]; contents: DialogueContent[] };
+export type DialogueContent = DialogueText | DialogueAnnotation;
+
+export type Dialogue = { character: Character; contents: DialogueContent[] };
 
 export type Transition = { name: string };
 
@@ -34,10 +35,19 @@ export type Line =
 
 export type Source = { chars: string; line: number; offset: number };
 
-export function forward(source: Source, len: number) {
+export function forward(source: Source, len: number): Source {
   return {
     chars: source.chars.slice(len),
     offset: source.offset + len,
+    line: source.line,
+  };
+}
+
+export function trimLeft(source: Source): Source {
+  let chars = source.chars.trimLeft();
+  return {
+    chars,
+    offset: source.offset + source.chars.length - chars.length,
     line: source.line,
   };
 }
@@ -70,6 +80,7 @@ export enum Tag {
   Assignment = "=",
   Definition = "$",
   Character = "@",
+  DialogueText = '"',
 }
 
 export function parseValue(
@@ -282,5 +293,98 @@ export function parseCharacter(
       offset: source.offset,
       message: `expected @, but found ${first}`,
     });
+  }
+}
+
+export function parseDialogueText(
+  source: Source
+): Result<[DialogueText, Source], ParseError> {
+  let first = source.chars[0];
+  if (first === Tag.DialogueText) {
+    let rest = source.chars.slice(1);
+    let endTagIndex = rest.indexOf(Tag.DialogueText);
+    if (endTagIndex === -1) {
+      return error({
+        line: source.line,
+        offset: source.chars.length + source.offset,
+        message: 'expect ", but found undefined',
+      });
+    } else {
+      let text = rest.slice(0, endTagIndex);
+
+      return ok([
+        { tag: "text", content: text },
+        forward(source, text.length + 2),
+      ]);
+    }
+  } else {
+    return error({
+      line: source.line,
+      offset: source.offset,
+      message: `expected ", but found ${first}`,
+    });
+  }
+}
+
+export function parseDialogueAnnotation(
+  source: Source
+): Result<[DialogueAnnotation, Source], ParseError> {
+  let result = parseAnnotation(source);
+  if (result.tag === "error") {
+    return result;
+  } else {
+    let [annotation, newSource] = result.value;
+    return ok([{ tag: "annotation", content: annotation }, newSource]);
+  }
+}
+
+export function parseDialogueContent(
+  contents: DialogueContent[],
+  source: Source
+): Result<[DialogueContent[], Source], ParseError> {
+  let first = source.chars[0];
+  if (first !== undefined) {
+    if (first === Tag.DialogueText) {
+      let result = parseDialogueText(source);
+      if (result.tag === "error") {
+        return ok([contents, source]);
+      } else {
+        let [dialogueText, newSource] = result.value;
+        return parseDialogueContent([...contents, dialogueText], newSource);
+      }
+    } else if (first === Tag.LeftBracket) {
+      let result = parseDialogueAnnotation(source);
+      if (result.tag === "error") {
+        return ok([contents, source]);
+      } else {
+        let [dialogueAnnotation, newSource] = result.value;
+        return parseDialogueContent(
+          [...contents, dialogueAnnotation],
+          newSource
+        );
+      }
+    } else {
+      return ok([contents, source]);
+    }
+  } else {
+    return ok([contents, source]);
+  }
+}
+
+export function parseDialogue(
+  source: Source
+): Result<[Dialogue, Source], ParseError> {
+  let result = parseCharacter(source);
+  if (result.tag === "ok") {
+    let [character, newSource] = result.value;
+    let result2 = parseDialogueContent([], trimLeft(newSource));
+    if (result2.tag === "ok") {
+      let [contents, newSource] = result2.value;
+      return ok([{ character, contents }, newSource]);
+    } else {
+      return result2;
+    }
+  } else {
+    return result;
   }
 }
