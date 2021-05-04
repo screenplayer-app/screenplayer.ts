@@ -23,8 +23,7 @@ export type Transition = { name: string };
 
 export type Action =
   | { tag: "linebreak" }
-  | { tag: "description"; content: string }
-  | { tag: "behavior"; characters: Character[]; content: string };
+  | { tag: "description"; content: string };
 
 export type Line =
   | { tag: "definition"; line: Definition }
@@ -415,4 +414,22 @@ export function parseTransition(
       message: `expect >>, but found ${source.chars.slice(0, 2)}`,
     });
   }
+}
+
+export function parseAction(
+  source: Source
+): Result<[Action, Source], ParseError> {
+  let endIndex = source.chars.indexOf("\n");
+  if (endIndex === -1) {
+    endIndex = source.chars.length;
+  }
+  let action = source.chars.slice(0, endIndex);
+  if (endIndex === 0) {
+    return ok([{ tag: "linebreak" }, forward(source, action.length + 1)]);
+  }
+
+  return ok([
+    { tag: "description", content: action },
+    forward(source, action.length),
+  ]);
 }

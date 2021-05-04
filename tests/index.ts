@@ -18,6 +18,8 @@ import {
   Dialogue,
   parseTransition,
   Transition,
+  parseAction,
+  Action,
 } from "../src/index";
 import { createSource } from "./helper";
 
@@ -603,5 +605,60 @@ test("parseTransition should return error for invalid input", (t) => {
     "expect >>, but found > ",
     "transition should contain method"
   );
+  t.end();
+});
+
+test("parseTransition should return error for invalid input", (t) => {
+  let source = createSource("> FADE IN:");
+  let result = parseTransition(source) as {
+    tag: "error";
+    error: ParseError;
+  };
+  t.equal(result.tag, "error", "result should have tag ok");
+  let error = result.error;
+  t.equal(error.line, source.line, "transition should contain method");
+  t.equal(error.offset, source.offset, "transition should contain method");
+  t.equal(
+    error.message,
+    "expect >>, but found > ",
+    "transition should contain method"
+  );
+  t.end();
+});
+
+test("parseAction should parse normal action", (t) => {
+  let source = createSource("This is an action");
+  let result = parseAction(source) as {
+    tag: "ok";
+    value: [{ tag: "description"; content: string }, Source];
+  };
+  t.equal(result.tag, "ok", "result should have tag ok");
+  let [action, newSource] = result.value;
+  t.equal("description", action.tag);
+  t.equal("This is an action", action.content);
+  t.equal(
+    newSource.offset,
+    source.offset + source.chars.length,
+    "new source should move to new offset"
+  );
+  t.equal(newSource.chars, "", "new source should have no chars left");
+  t.end();
+});
+
+test("parseAction should parse normal action", (t) => {
+  let source = createSource("\n");
+  let result = parseAction(source) as {
+    tag: "ok";
+    value: [{ tag: "linebreak"; content: string }, Source];
+  };
+  t.equal(result.tag, "ok", "result should have tag ok");
+  let [action, newSource] = result.value;
+  t.equal("linebreak", action.tag);
+  t.equal(
+    newSource.offset,
+    source.offset + source.chars.length,
+    "new source should move to new offset"
+  );
+  t.equal(newSource.chars, "", "new source should have no chars left");
   t.end();
 });
