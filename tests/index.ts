@@ -16,6 +16,8 @@ import {
   parseDialogueContent,
   parseDialogue,
   Dialogue,
+  parseTransition,
+  Transition,
 } from "../src/index";
 import { createSource } from "./helper";
 
@@ -558,5 +560,48 @@ test("parseDialogue should parse dialogue with annotation", (t) => {
   );
   t.equal(newSource.chars, "", "new source should have no chars left");
 
+  t.end();
+});
+
+test("parseTransition should parse normal transition", (t) => {
+  let source = createSource(">> FADE IN:");
+  let result = parseTransition(source) as {
+    tag: "ok";
+    value: [Transition, Source];
+  };
+  t.equal(result.tag, "ok", "result should have tag ok");
+  let [transition, newSource] = result.value;
+  t.deepEqual(
+    transition,
+    {
+      name: "FADE IN:",
+    },
+    "transition should contain method"
+  );
+  t.equal(
+    newSource.offset,
+    source.offset + source.chars.length,
+    "new source should move to new offset"
+  );
+  t.equal(newSource.chars, "", "new source should have no chars left");
+
+  t.end();
+});
+
+test("parseTransition should return error for invalid input", (t) => {
+  let source = createSource("> FADE IN:");
+  let result = parseTransition(source) as {
+    tag: "error";
+    error: ParseError;
+  };
+  t.equal(result.tag, "error", "result should have tag ok");
+  let error = result.error;
+  t.equal(error.line, source.line, "transition should contain method");
+  t.equal(error.offset, source.offset, "transition should contain method");
+  t.equal(
+    error.message,
+    "expect >>, but found > ",
+    "transition should contain method"
+  );
   t.end();
 });

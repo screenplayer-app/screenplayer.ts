@@ -81,6 +81,7 @@ export enum Tag {
   Definition = "$",
   Character = "@",
   DialogueText = '"',
+  Transition = ">>",
 }
 
 export function parseValue(
@@ -386,5 +387,32 @@ export function parseDialogue(
     }
   } else {
     return result;
+  }
+}
+
+export function parseTransition(
+  source: Source
+): Result<[Transition, Source], ParseError> {
+  if (source.chars.startsWith(Tag.Transition)) {
+    let endIndex = source.chars.slice(Tag.Transition.length).indexOf("\n");
+    if (endIndex === -1) {
+      let transition = source.chars.slice(Tag.Transition.length);
+      return ok([
+        { name: transition.trim() },
+        forward(source, transition.length + Tag.Transition.length),
+      ]);
+    } else {
+      let transition = source.chars.slice(Tag.Transition.length, endIndex);
+      return ok([
+        { name: transition.trim() },
+        forward(source, endIndex + Tag.Transition.length),
+      ]);
+    }
+  } else {
+    return error({
+      line: source.line,
+      offset: source.offset,
+      message: `expect >>, but found ${source.chars.slice(0, 2)}`,
+    });
   }
 }
