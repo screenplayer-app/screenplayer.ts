@@ -17,7 +17,15 @@ export type DialogueAnnotation = { tag: "annotation"; content: string };
 
 export type DialogueContent = DialogueText | DialogueAnnotation;
 
-export type Dialogue = { character: Character; contents: DialogueContent[] };
+export type SoloDialogue = {
+  tag: "solo";
+  character: Character;
+  contents: DialogueContent[];
+};
+
+export type Dialogue =
+  | SoloDialogue
+  | { tag: "harmony"; dialogues: SoloDialogue[] };
 
 export type Transition = { name: string };
 
@@ -80,7 +88,11 @@ export enum Tag {
   Definition = "$",
   Character = "@",
   DialogueText = '"',
-  Transition = ">>",
+  Transition = ">",
+  Carrige = "\r",
+  Newline = "\n",
+  Colon = ":",
+  And = "&",
 }
 
 export function parseValue(
@@ -372,7 +384,8 @@ export function parseDialogueContent(
 }
 
 export function parseDialogue(
-  source: Source
+  source: Source,
+  dialogues: SoloDialogue[] = []
 ): Result<[Dialogue, Source], ParseError> {
   let result = parseCharacter(source);
   if (result.tag === "ok") {
@@ -380,7 +393,24 @@ export function parseDialogue(
     let result2 = parseDialogueContent([], trimLeft(newSource));
     if (result2.tag === "ok") {
       let [contents, newSource] = result2.value;
-      return ok([{ character, contents }, newSource]);
+      let dialogue: SoloDialogue = { tag: "solo", character, contents };
+
+      let next = trimLeft(newSource).chars[0];
+      if (next === Tag.And) {
+        return parseDialogue(trimLeft(forward(trimLeft(newSource), 1)), [
+          ...dialogues,
+          dialogue,
+        ]);
+      } else {
+        if (dialogues.length === 0) {
+          return ok([dialogue, newSource]);
+        } else {
+          return ok([
+            { tag: "harmony", dialogues: [...dialogues, dialogue] },
+            newSource,
+          ]);
+        }
+      }
     } else {
       return result2;
     }
@@ -392,14 +422,15 @@ export function parseDialogue(
 export function parseTransition(
   source: Source
 ): Result<[Transition, Source], ParseError> {
-  if (source.chars.startsWith(Tag.Transition)) {
-    let endIndex = source.chars.slice(Tag.Transition.length).indexOf("\n");
+  let first = source.chars[0];
+  if (first === Tag.Transition) {
+    let endIndex = source.chars.indexOf(Tag.Colon);
     if (endIndex === -1) {
-      let transition = source.chars.slice(Tag.Transition.length);
-      return ok([
-        { name: transition.trim() },
-        forward(source, transition.length + Tag.Transition.length),
-      ]);
+      return error({
+        line: source.line,
+        offset: source.offset,
+        message: `expect :, but found undefined`,
+      });
     } else {
       let transition = source.chars.slice(Tag.Transition.length, endIndex);
       return ok([
@@ -411,7 +442,7 @@ export function parseTransition(
     return error({
       line: source.line,
       offset: source.offset,
-      message: `expect >>, but found ${source.chars.slice(0, 2)}`,
+      message: `expect >, but found ${first}`,
     });
   }
 }
@@ -419,7 +450,7 @@ export function parseTransition(
 export function parseAction(
   source: Source
 ): Result<[Action, Source], ParseError> {
-  let endIndex = source.chars.indexOf("\n");
+  let endIndex = source.chars.indexOf(Tag.Newline);
   if (endIndex === -1) {
     endIndex = source.chars.length;
   }
@@ -432,4 +463,91 @@ export function parseAction(
     { tag: "description", content: action },
     forward(source, action.length),
   ]);
+}
+
+export function parse(
+  lines: Line[],
+  source: Source
+): Result<Line[], ParseError> {
+  if (source.chars.length === 0) {
+    return ok(lines);
+  } else {
+    let first = source.chars[0];
+    switch (first) {
+      case Tag.Definition:
+        {
+          let result = parseDefinition(source);
+          if (result.tag === "error") {
+            return result;
+          } else {
+            let [definition, newSource] = result.value;
+            return parse(
+              [...lines, { tag: "definition", line: definition }],
+              newSource
+            );
+          }
+        }
+        break;
+      case Tag.LeftSquareBracket:
+        {
+          let result = parseSceneHeading(source);
+          if (result.tag === "error") {
+            return result;
+          } else {
+            let [sceneHeading, newSource] = result.value;
+            return parse(
+              [...lines, { tag: "sceneheading", line: sceneHeading }],
+              newSource
+            );
+          }
+        }
+        break;
+      case Tag.Transition:
+        {
+          let result = parseTransition(source);
+          if (result.tag === "error") {
+            return result;
+          } else {
+            let [transition, newSource] = result.value;
+            return parse(
+              [...lines, { tag: "transition", line: transition }],
+              newSource
+            );
+          }
+        }
+        break;
+      case Tag.Character:
+        {
+          let result = parseDialogue(source);
+          if (result.tag === "error") {
+            let result = parseAction(source);
+            if (result.tag === "error") {
+              return result;
+            } else {
+              let [action, newSource] = result.value;
+              return parse(
+                [...lines, { tag: "action", line: action }],
+                newSource
+              );
+            }
+          } else {
+            let [dialogue, newSource] = result.value;
+            return parse(
+              [...lines, { tag: "dialogue", line: dialogue }],
+              newSource
+            );
+          }
+        }
+        break;
+      default: {
+        let result = parseAction(source);
+        if (result.tag === "error") {
+          return result;
+        } else {
+          let [action, newSource] = result.value;
+          return parse([...lines, { tag: "action", line: action }], newSource);
+        }
+      }
+    }
+  }
 }

@@ -19,7 +19,6 @@ import {
   parseTransition,
   Transition,
   parseAction,
-  Action,
 } from "../src/index";
 import { createSource } from "./helper";
 
@@ -468,6 +467,7 @@ test("parseDialogue should parse normal dialogue", (t) => {
   t.deepEqual(
     dialogue,
     {
+      tag: "solo",
       character: { names: ["characterA"] },
       contents: [{ tag: "text", content: "hello" }],
     },
@@ -494,6 +494,7 @@ test("parseDialogue should parse normal dialogue", (t) => {
   t.deepEqual(
     dialogue,
     {
+      tag: "solo",
       character: { names: ["characterA"] },
       contents: [{ tag: "text", content: "hello" }],
     },
@@ -520,6 +521,7 @@ test("parseDialogue should parse dialogue by multiple characters", (t) => {
   t.deepEqual(
     dialogue,
     {
+      tag: "solo",
       character: { names: ["characterA", "characterB"] },
       contents: [{ tag: "text", content: "hello" }],
     },
@@ -546,6 +548,7 @@ test("parseDialogue should parse dialogue with annotation", (t) => {
   t.deepEqual(
     dialogue,
     {
+      tag: "solo",
       character: { names: ["characterA"] },
       contents: [
         { tag: "text", content: "hello" },
@@ -565,8 +568,51 @@ test("parseDialogue should parse dialogue with annotation", (t) => {
   t.end();
 });
 
+test("parseDialogue should parse parallel dialogues", (t) => {
+  let source = createSource(
+    '@{characterA} "hello"(pause)"world" & @{characterB} "hello"'
+  );
+  let result = parseDialogue(source) as {
+    tag: "ok";
+    value: [Dialogue, Source];
+  };
+  t.equal(result.tag, "ok", "result should have tag ok");
+  let [dialogue, newSource] = result.value;
+  t.deepEqual(
+    dialogue,
+    {
+      tag: "harmony",
+      dialogues: [
+        {
+          tag: "solo",
+          character: { names: ["characterA"] },
+          contents: [
+            { tag: "text", content: "hello" },
+            { tag: "annotation", content: "pause" },
+            { tag: "text", content: "world" },
+          ],
+        },
+        {
+          tag: "solo",
+          character: { names: ["characterB"] },
+          contents: [{ tag: "text", content: "hello" }],
+        },
+      ],
+    },
+    "dialogue content should contain character and text"
+  );
+  t.equal(
+    newSource.offset,
+    source.offset + source.chars.length,
+    "new source should move to new offset"
+  );
+  t.equal(newSource.chars, "", "new source should have no chars left");
+
+  t.end();
+});
+
 test("parseTransition should parse normal transition", (t) => {
-  let source = createSource(">> FADE IN:");
+  let source = createSource("> FADE IN:");
   let result = parseTransition(source) as {
     tag: "ok";
     value: [Transition, Source];
@@ -576,7 +622,7 @@ test("parseTransition should parse normal transition", (t) => {
   t.deepEqual(
     transition,
     {
-      name: "FADE IN:",
+      name: "FADE IN",
     },
     "transition should contain method"
   );
@@ -591,36 +637,18 @@ test("parseTransition should parse normal transition", (t) => {
 });
 
 test("parseTransition should return error for invalid input", (t) => {
-  let source = createSource("> FADE IN:");
+  let source = createSource("> FADE IN");
   let result = parseTransition(source) as {
     tag: "error";
     error: ParseError;
   };
-  t.equal(result.tag, "error", "result should have tag ok");
+  t.equal(result.tag, "error", "result should have tag error");
   let error = result.error;
   t.equal(error.line, source.line, "transition should contain method");
   t.equal(error.offset, source.offset, "transition should contain method");
   t.equal(
     error.message,
-    "expect >>, but found > ",
-    "transition should contain method"
-  );
-  t.end();
-});
-
-test("parseTransition should return error for invalid input", (t) => {
-  let source = createSource("> FADE IN:");
-  let result = parseTransition(source) as {
-    tag: "error";
-    error: ParseError;
-  };
-  t.equal(result.tag, "error", "result should have tag ok");
-  let error = result.error;
-  t.equal(error.line, source.line, "transition should contain method");
-  t.equal(error.offset, source.offset, "transition should contain method");
-  t.equal(
-    error.message,
-    "expect >>, but found > ",
+    "expect :, but found undefined",
     "transition should contain method"
   );
   t.end();

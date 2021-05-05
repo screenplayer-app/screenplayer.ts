@@ -1,0 +1,11 @@
+${Title}={Document of ScreenPlay}
+${Contact}={https://github.com/screenplayer/FSharp.ScreenPlayer}
+${Characters}={John; Henry}
+
+[EXT - on the highway / INT - in the car]
+@{John} "Hi, Henry"
+@{Henry} "Hi, John"
+@{John; Henry}(with sad face) "Long time no see" (pause) "Where have you been"
+@{Henry} "Heaven" & @{John} "Hell"
+
+A new world started.
