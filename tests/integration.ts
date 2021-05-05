@@ -132,14 +132,15 @@ test("parse should be able to parse a file", (t) => {
                 tag: "text",
                 content: "Long time no see",
               },
+              {
+                tag: "annotation",
+                content: "pause",
+              },
+              {
+                tag: "text",
+                content: "Where have you been",
+              },
             ],
-          },
-        },
-        {
-          tag: "action",
-          line: {
-            tag: "description",
-            content: ' (pause) "Where have you been"',
           },
         },
         {

@@ -356,13 +356,22 @@ export function parseDialogueContent(
 ): Result<[DialogueContent[], Source], ParseError> {
   let first = source.chars[0];
   if (first !== undefined) {
-    if (first === Tag.DialogueText) {
+    if (first === Tag.Newline) {
+      return ok([contents, source]);
+    } else if (first === Tag.DialogueText) {
       let result = parseDialogueText(source);
       if (result.tag === "error") {
         return ok([contents, source]);
       } else {
         let [dialogueText, newSource] = result.value;
-        return parseDialogueContent([...contents, dialogueText], newSource);
+        if (newSource.chars[0] === Tag.Newline) {
+          return ok([[...contents, dialogueText], newSource]);
+        } else {
+          return parseDialogueContent(
+            [...contents, dialogueText],
+            trimLeft(newSource)
+          );
+        }
       }
     } else if (first === Tag.LeftBracket) {
       let result = parseDialogueAnnotation(source);
@@ -370,10 +379,14 @@ export function parseDialogueContent(
         return ok([contents, source]);
       } else {
         let [dialogueAnnotation, newSource] = result.value;
-        return parseDialogueContent(
-          [...contents, dialogueAnnotation],
-          newSource
-        );
+        if (newSource.chars[0] === Tag.Newline) {
+          return ok([[...contents, dialogueAnnotation], newSource]);
+        } else {
+          return parseDialogueContent(
+            [...contents, dialogueAnnotation],
+            trimLeft(newSource)
+          );
+        }
       }
     } else {
       return ok([contents, source]);
